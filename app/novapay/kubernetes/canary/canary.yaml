@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: novapay-canary
+  namespace: novapay
+
+spec:
+
+  replicas: 1
+
+  selector:
+
+    matchLabels:
+      app: novapay
+      version: canary
+
+
+  template:
+
+    metadata:
+
+      labels:
+        app: novapay
+        version: canary
+
+
+    spec:
+
+      containers:
+
+      - name: novapay
+
+        image: saikiran9068/novapay:v3
+
+        ports:
+
+        - containerPort: 8080

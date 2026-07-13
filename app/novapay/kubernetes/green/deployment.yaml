@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: novapay-green
+  namespace: novapay
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: novapay
+      version: green
+
+  template:
+
+    metadata:
+      labels:
+        app: novapay
+        version: green
+
+    spec:
+
+      containers:
+
+      - name: novapay
+
+        image: saikiran9068/novapay:v2
+
+        ports:
+        - containerPort: 8080
+
+
+        livenessProbe:
+
+          httpGet:
+            path: /api/payment/health
+            port: 8080
+
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+
+        readinessProbe:
+
+          httpGet:
+            path: /api/payment/health
+            port: 8080
+
+          initialDelaySeconds: 10
+          periodSeconds: 5
