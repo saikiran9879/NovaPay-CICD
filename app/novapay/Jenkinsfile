@@ -1,24 +1,16 @@
 pipeline {
-    environment {
-
-    PATH = "/opt/homebrew/bin:/usr/local/bin:$PATH"
-
-    IMAGE_NAME = "saikiran9068/novapay"
-
-    IMAGE_TAG = "latest"
-
-}
 
     agent any
 
-
     environment {
 
+        PATH = "/usr/local/bin:$PATH"
+
         IMAGE_NAME = "saikiran9068/novapay"
+
         IMAGE_TAG = "latest"
 
     }
-
 
     stages {
 
