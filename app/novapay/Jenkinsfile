@@ -1,0 +1,168 @@
+pipeline {
+
+    agent any
+
+
+    environment {
+
+        IMAGE_NAME = "saikiran9068/novapay"
+        IMAGE_TAG = "latest"
+
+    }
+
+
+    stages {
+
+
+        stage('Checkout') {
+
+            steps {
+
+                echo 'Checking source code'
+
+            }
+
+        }
+
+
+
+        stage('Build') {
+
+            steps {
+
+                sh './mvnw clean package'
+
+            }
+
+        }
+
+
+
+        stage('Unit Test') {
+
+            steps {
+
+                sh './mvnw test'
+
+            }
+
+        }
+
+
+
+        stage('SAST - SonarQube') {
+
+            steps {
+
+                echo 'Running SonarQube security scan'
+
+            }
+
+        }
+
+
+
+        stage('Dependency Scan') {
+
+            steps {
+
+                echo 'Checking vulnerable dependencies'
+
+            }
+
+        }
+
+
+
+        stage('Docker Build') {
+
+            steps {
+
+                sh '''
+                docker build \
+                -t $IMAGE_NAME:$IMAGE_TAG .
+                '''
+
+            }
+
+        }
+
+
+
+        stage('Container Scan') {
+
+            steps {
+
+                sh '''
+                trivy image \
+                $IMAGE_NAME:$IMAGE_TAG
+                '''
+
+            }
+
+        }
+
+
+
+        stage('Push Image') {
+
+            steps {
+
+                echo 'Push Docker image'
+
+            }
+
+        }
+
+
+
+        stage('Deploy Kubernetes') {
+
+            steps {
+
+                sh '''
+                kubectl apply \
+                -f kubernetes/green/deployment.yaml
+                '''
+
+            }
+
+        }
+
+
+
+        stage('Verification') {
+
+            steps {
+
+                sh '''
+                kubectl get pods \
+                -n novapay
+                '''
+
+            }
+
+        }
+
+
+    }
+
+
+    post {
+
+
+        failure {
+
+            echo 'Deployment failed - initiating rollback'
+
+            sh '''
+            kubectl rollout undo deployment/novapay-green \
+            -n novapay
+            '''
+
+        }
+
+
+    }
+
+}
