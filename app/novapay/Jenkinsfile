@@ -128,15 +128,17 @@ pipeline {
 
 
 
-        stage('Deploy Kubernetes') {
+       stage('Deploy Kubernetes') {
 
-            steps {
+    steps {
 
-               kubectl apply -f app/novapay/kubernetes/green/deployment.yaml
+        sh '''
+        kubectl apply -f app/novapay/kubernetes/green/deployment.yaml
+        '''
 
-            }
+    }
 
-        }
+}
 
 
 
