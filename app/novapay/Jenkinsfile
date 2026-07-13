@@ -26,27 +26,35 @@ pipeline {
 
 
 
-        stage('Build') {
+       stage('Build') {
 
-            steps {
+    steps {
 
-                sh './mvnw clean package'
+        dir('app/novapay') {
 
-            }
+            sh './mvnw clean package'
 
         }
+
+    }
+
+}
 
 
 
         stage('Unit Test') {
 
-            steps {
+    steps {
 
-                sh './mvnw test'
+        dir('app/novapay') {
 
-            }
+            sh './mvnw test'
 
         }
+
+    }
+
+}
 
 
 
@@ -78,10 +86,14 @@ pipeline {
 
             steps {
 
-                sh '''
-                docker build \
-                -t $IMAGE_NAME:$IMAGE_TAG .
-                '''
+              dir('app/novapay') {
+
+    sh '''
+    docker build \
+    -t $IMAGE_NAME:$IMAGE_TAG .
+    '''
+
+}
 
             }
 
@@ -120,10 +132,7 @@ pipeline {
 
             steps {
 
-                sh '''
-                kubectl apply \
-                -f kubernetes/green/deployment.yaml
-                '''
+               kubectl apply -f app/novapay/kubernetes/green/deployment.yaml
 
             }
 
