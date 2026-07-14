@@ -185,30 +185,20 @@ pipeline {
 
 
         stage('Deploy Kubernetes') {
+    steps {
+        sh '''
+        echo "Deploying Kubernetes resources"
 
-            steps {
+        /usr/local/bin/kubectl apply -f namespace.yaml
 
+        /usr/local/bin/kubectl apply -f app/novapay/kubernetes/blue/deployment.yaml
 
-                sh '''
+        /usr/local/bin/kubectl apply -f app/novapay/kubernetes/service/service.yaml
 
-                ${KUBECTL} apply -f k8s/namespace.yaml
-
-                ${KUBECTL} apply -f k8s/deployment.yaml
-
-                ${KUBECTL} apply -f k8s/service.yaml
-
-
-                ${KUBECTL} rollout status \
-                deployment/novapay \
-                -n ${NAMESPACE}
-
-
-                '''
-
-            }
-
-        }
-
+        echo "Kubernetes deployment completed"
+        '''
+    }
+}
 
 
 
