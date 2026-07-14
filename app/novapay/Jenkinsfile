@@ -2,18 +2,19 @@ pipeline {
 
     agent any
 
-
     environment {
 
         DOCKER_IMAGE = "saikiran9068/novapay:latest"
 
-        DOCKER_REGISTRY = "docker.io"
+        DOCKER_USER = "saikiran9068"
 
-        DOCKER_CREDENTIALS = "dockerhub-token"
+        NAMESPACE = "novapay"
 
-        KUBE_NAMESPACE = "novapay"
+        TRIVY = "/usr/local/bin/trivy"
 
-        KUBE_DEPLOYMENT = "novapay-green"
+        DOCKER = "/usr/local/bin/docker"
+
+        KUBECTL = "/usr/local/bin/kubectl"
 
     }
 
@@ -55,6 +56,7 @@ pipeline {
 
 
 
+
         stage('Unit Test') {
 
             steps {
@@ -75,17 +77,18 @@ pipeline {
 
 
 
+
+
         stage('SAST - SonarQube') {
 
             steps {
 
                 echo "Running SonarQube security scan"
 
-                // Add SonarQube command here when configured
-
             }
 
         }
+
 
 
 
@@ -95,11 +98,11 @@ pipeline {
 
                 echo "Checking vulnerable dependencies"
 
-                // Add dependency check tool here
-
             }
 
         }
+
+
 
 
 
@@ -111,8 +114,7 @@ pipeline {
 
                     sh '''
 
-                    /usr/local/bin/docker build \
-                    -t ${DOCKER_IMAGE} .
+                    ${DOCKER} build -t ${DOCKER_IMAGE} .
 
                     '''
 
@@ -124,13 +126,15 @@ pipeline {
 
 
 
+
+
         stage('Container Scan') {
 
             steps {
 
                 sh '''
 
-                /usr/local/bin/trivy image \
+                ${TRIVY} image \
                 --severity HIGH,CRITICAL \
                 --exit-code 0 \
                 ${DOCKER_IMAGE}
@@ -143,30 +147,31 @@ pipeline {
 
 
 
+
+
         stage('Push Image') {
 
             steps {
 
-                withCredentials([usernamePassword(
-                    credentialsId: "${DOCKER_CREDENTIALS}",
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-token',
+                        usernameVariable: 'USERNAME',
+                        passwordVariable: 'PASSWORD'
+                    )
+                ]) {
 
 
                     sh '''
 
-                    echo $DOCKER_PASS | /usr/local/bin/docker login \
-                    -u $DOCKER_USER \
+                    echo $PASSWORD | ${DOCKER} login \
+                    -u $USERNAME \
                     --password-stdin
 
 
-                    /usr/local/bin/docker push \
-                    ${DOCKER_IMAGE}
-
+                    ${DOCKER} push ${DOCKER_IMAGE}
 
                     '''
-
 
                 }
 
@@ -177,25 +182,25 @@ pipeline {
 
 
 
+
+
         stage('Deploy Kubernetes') {
 
             steps {
 
+
                 sh '''
 
-                echo "Deploying application"
+                ${KUBECTL} apply -f k8s/namespace.yaml
+
+                ${KUBECTL} apply -f k8s/deployment.yaml
+
+                ${KUBECTL} apply -f k8s/service.yaml
 
 
-                /usr/local/bin/kubectl create namespace ${KUBE_NAMESPACE} \
-                --dry-run=client -o yaml | \
-                /usr/local/bin/kubectl apply -f -
-
-
-
-                /usr/local/bin/kubectl apply \
-                -f kubernetes/ \
-                -n ${KUBE_NAMESPACE}
-
+                ${KUBECTL} rollout status \
+                deployment/novapay \
+                -n ${NAMESPACE}
 
 
                 '''
@@ -203,6 +208,8 @@ pipeline {
             }
 
         }
+
+
 
 
 
@@ -213,18 +220,9 @@ pipeline {
 
                 sh '''
 
-                echo "Checking deployment"
+                ${KUBECTL} get pods -n ${NAMESPACE}
 
-
-                /usr/local/bin/kubectl rollout status \
-                deployment/${KUBE_DEPLOYMENT} \
-                -n ${KUBE_NAMESPACE}
-
-
-
-                /usr/local/bin/kubectl get pods \
-                -n ${KUBE_NAMESPACE}
-
+                ${KUBECTL} get svc -n ${NAMESPACE}
 
                 '''
 
@@ -234,6 +232,8 @@ pipeline {
 
 
     }
+
+
 
 
 
@@ -248,45 +248,33 @@ pipeline {
 
 
 
+
         failure {
 
-
-            echo "Pipeline failed - checking rollback"
+            echo "Deployment failed - checking rollback"
 
 
             sh '''
 
-            if /usr/local/bin/kubectl get deployment \
-            ${KUBE_DEPLOYMENT} \
-            -n ${KUBE_NAMESPACE}
+            if ${KUBECTL} get deployment novapay -n ${NAMESPACE} >/dev/null 2>&1
 
             then
 
-
-                echo "Rollback started"
-
-
-                /usr/local/bin/kubectl rollout undo \
-                deployment/${KUBE_DEPLOYMENT} \
-                -n ${KUBE_NAMESPACE}
-
+                ${KUBECTL} rollout undo \
+                deployment/novapay \
+                -n ${NAMESPACE}
 
             else
 
-
-                echo "No deployment found. Rollback skipped"
-
+                echo "No deployment found. Rollback skipped."
 
             fi
 
-
             '''
-
 
         }
 
 
     }
-
 
 }
