@@ -101,25 +101,24 @@ pipeline {
 
 
 
-        stage('Docker Build') {
+       stage('Docker Build') {
 
-            steps {
+    steps {
 
-                dir('app/novapay') {
+        dir('app/novapay') {
 
-                    sh '''
+            sh '''
+            export PATH=$PATH:/usr/local/bin
 
-                    docker build \
-                    -t $IMAGE_NAME:$IMAGE_TAG .
+            docker --version
 
-                    '''
-
-                }
-
-            }
+            docker build -t $IMAGE_NAME:$IMAGE_TAG .
+            '''
 
         }
 
+    }
+}
 
 
         stage('Container Scan') {
@@ -251,14 +250,12 @@ pipeline {
 
 
             sh '''
+export PATH=$PATH:/usr/local/bin
 
-            kubectl rollout undo \
-            deployment/novapay-green \
-            -n novapay
+kubectl version --client
 
-
-            '''
-
+kubectl rollout undo deployment/novapay-green -n novapay
+'''
 
         }
 
