@@ -125,26 +125,16 @@ pipeline {
 
 
 
-
-        stage('Container Scan') {
-
-            steps {
-
-
-                sh '''
-
-                trivy image \
-                --severity HIGH,CRITICAL \
-                --exit-code 0 \
-                ${IMAGE_NAME}:${IMAGE_TAG}
-
-
-                '''
-
-            }
-
-        }
-
+    stage('Container Scan') {
+    steps {
+        sh '''
+        /usr/local/bin/trivy image \
+        --severity HIGH,CRITICAL \
+        --exit-code 0 \
+        saikiran9068/novapay:latest
+        '''
+    }
+}
 
 
 
@@ -262,40 +252,19 @@ pipeline {
 
 
 
-    post {
+   post {
+    failure {
+        echo "Deployment failed - initiating rollback"
 
+        sh '''
+        kubectl get deployment -n novapay
 
-        success {
-
-
-            echo "Deployment completed successfully"
-
-
-        }
-
-
-
-        failure {
-
-
-            echo "Deployment failed - initiating rollback"
-
-
-            sh '''
-
-
-            ${KUBECTL} rollout undo \
-            deployment/novapay-green \
-            -n novapay
-
-
-            '''
-
-
-        }
-
-
+        if kubectl get deployment novapay-green -n novapay
+        then
+            kubectl rollout undo deployment/novapay-green -n novapay
+        else
+            echo "No previous deployment found. Skipping rollback."
+        fi
+        '''
     }
-
-
 }
