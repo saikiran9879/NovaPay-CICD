@@ -184,7 +184,7 @@ pipeline {
 
 
 
-        stage('Deploy Kubernetes') {
+       stage('Deploy Kubernetes') {
     steps {
         sh '''
         echo "Deploying Kubernetes resources"
@@ -195,7 +195,7 @@ pipeline {
 
         /usr/local/bin/kubectl apply -f app/novapay/kubernetes/service/service.yaml
 
-        echo "Kubernetes deployment completed"
+        echo "Deployment completed"
         '''
     }
 }
@@ -205,24 +205,18 @@ pipeline {
 
 
         stage('Verification') {
+    steps {
+        sh '''
+        echo "Checking Kubernetes deployment"
 
-            steps {
+        /usr/local/bin/kubectl get pods -n novapay
 
-                sh '''
+        /usr/local/bin/kubectl get svc -n novapay
 
-                ${KUBECTL} get pods -n ${NAMESPACE}
-
-                ${KUBECTL} get svc -n ${NAMESPACE}
-
-                '''
-
-            }
-
-        }
-
-
+        /usr/local/bin/kubectl rollout status deployment/novapay-blue -n novapay
+        '''
     }
-
+}
 
 
 
@@ -246,19 +240,7 @@ pipeline {
 
             sh '''
 
-            if ${KUBECTL} get deployment novapay -n ${NAMESPACE} >/dev/null 2>&1
-
-            then
-
-                ${KUBECTL} rollout undo \
-                deployment/novapay \
-                -n ${NAMESPACE}
-
-            else
-
-                echo "No deployment found. Rollback skipped."
-
-            fi
+           /usr/local/bin/kubectl rollout undo deployment/novapay-green -n novapay || echo "Rollback skipped"
 
             '''
 
