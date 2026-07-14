@@ -2,15 +2,16 @@ pipeline {
 
     agent any
 
+
     environment {
 
-        PATH = "/usr/local/bin:$PATH"
-
         IMAGE_NAME = "saikiran9068/novapay"
+        IMAGE_TAG  = "latest"
 
-        IMAGE_TAG = "latest"
+        KUBE_NAMESPACE = "novapay"
 
     }
+
 
     stages {
 
@@ -19,7 +20,7 @@ pipeline {
 
             steps {
 
-                echo 'Checking source code'
+                echo "Checking source code"
 
             }
 
@@ -27,35 +28,45 @@ pipeline {
 
 
 
-       stage('Build') {
+        stage('Build') {
 
-    steps {
+            steps {
 
-        dir('app/novapay') {
+                dir('app/novapay') {
 
-            sh './mvnw clean package'
+                    sh '''
+
+                    chmod +x mvnw
+
+                    ./mvnw clean package
+
+                    '''
+
+                }
+
+            }
 
         }
-
-    }
-
-}
 
 
 
         stage('Unit Test') {
 
-    steps {
+            steps {
 
-        dir('app/novapay') {
+                dir('app/novapay') {
 
-            sh './mvnw test'
+                    sh '''
+
+                    ./mvnw test
+
+                    '''
+
+                }
+
+            }
 
         }
-
-    }
-
-}
 
 
 
@@ -63,7 +74,9 @@ pipeline {
 
             steps {
 
-                echo 'Running SonarQube security scan'
+                echo "Running SonarQube security scan"
+
+                // Add SonarQube command here later
 
             }
 
@@ -75,7 +88,9 @@ pipeline {
 
             steps {
 
-                echo 'Checking vulnerable dependencies'
+                echo "Checking vulnerable dependencies"
+
+                // Add OWASP dependency check later
 
             }
 
@@ -87,14 +102,16 @@ pipeline {
 
             steps {
 
-              dir('app/novapay') {
+                dir('app/novapay') {
 
-    sh '''
-    docker build \
-    -t $IMAGE_NAME:$IMAGE_TAG .
-    '''
+                    sh '''
 
-}
+                    docker build \
+                    -t $IMAGE_NAME:$IMAGE_TAG .
+
+                    '''
+
+                }
 
             }
 
@@ -107,8 +124,12 @@ pipeline {
             steps {
 
                 sh '''
+
                 trivy image \
+                --severity HIGH,CRITICAL \
+                --exit-code 0 \
                 $IMAGE_NAME:$IMAGE_TAG
+
                 '''
 
             }
@@ -121,7 +142,36 @@ pipeline {
 
             steps {
 
-                echo 'Push Docker image'
+
+                withCredentials([
+
+                    usernamePassword(
+
+                    credentialsId: 'dockerhub-token',
+
+                    usernameVariable: 'DOCKER_USER',
+
+                    passwordVariable: 'DOCKER_PASS'
+
+                    )
+
+                ]) {
+
+
+                    sh '''
+
+                    echo $DOCKER_PASS | docker login \
+                    -u $DOCKER_USER \
+                    --password-stdin
+
+
+                    docker push \
+                    $IMAGE_NAME:$IMAGE_TAG
+
+
+                    '''
+
+                }
 
             }
 
@@ -129,17 +179,28 @@ pipeline {
 
 
 
-       stage('Deploy Kubernetes') {
+        stage('Deploy Kubernetes') {
 
-    steps {
+            steps {
 
-        sh '''
-        kubectl apply -f app/novapay/kubernetes/green/deployment.yaml
-        '''
 
-    }
+                sh '''
 
-}
+                kubectl apply \
+                -f app/novapay/kubernetes/green/deployment.yaml \
+                -n $KUBE_NAMESPACE
+
+
+                kubectl apply \
+                -f app/novapay/kubernetes/service.yaml \
+                -n $KUBE_NAMESPACE
+
+
+                '''
+
+            }
+
+        }
 
 
 
@@ -148,8 +209,16 @@ pipeline {
             steps {
 
                 sh '''
+
+                kubectl rollout status \
+                deployment/novapay-green \
+                -n $KUBE_NAMESPACE
+
+
                 kubectl get pods \
-                -n novapay
+                -n $KUBE_NAMESPACE
+
+
                 '''
 
             }
@@ -160,21 +229,38 @@ pipeline {
     }
 
 
+
     post {
+
+
+        success {
+
+            echo "NovaPay deployment completed successfully"
+
+        }
+
 
 
         failure {
 
-            echo 'Deployment failed - initiating rollback'
+
+            echo "Deployment failed - initiating rollback"
+
 
             sh '''
-            kubectl rollout undo deployment/novapay-green \
+
+            kubectl rollout undo \
+            deployment/novapay-green \
             -n novapay
+
+
             '''
+
 
         }
 
 
     }
+
 
 }
